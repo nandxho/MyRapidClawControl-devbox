@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# next
+.next/
+out/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# logs/runtime
+*.log
+.dev.log
+.dev.pid
+mission.log
+mission.pid
+mission.exit
+
+# misc
+.DS_Store
+tsconfig.tsbuildinfo

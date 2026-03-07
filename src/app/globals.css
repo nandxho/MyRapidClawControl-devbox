@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand Colors */
+  --color-background: #050a14;
+  --color-surface: #080d1a;
+  --color-surface-2: #0d1526;
+  --color-surface-3: #111e35;
+
+  --color-primary: #06b6d4;
+  --color-primary-dim: #0e7490;
+  --color-primary-fg: #050a14;
+
+  --color-secondary: #8b5cf6;
+  --color-secondary-dim: #6d28d9;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+
+  --color-border: #1e2d42;
+  --color-border-primary: color-mix(in oklch, #06b6d4 18%, transparent);
+
+  --color-muted: #1e2d42;
+  --color-muted-fg: #64748b;
+
+  --color-foreground: #cbd5e1;
+  --color-foreground-dim: #94a3b8;
+
+  /* Typography */
+  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-mono-code), "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+
+  /* Border radius */
+  --radius: 0.75rem;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    background-color: #050a14;
+    color: #cbd5e1;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #050a14;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Premium scrollbars */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e2d42;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #06b6d4;
+  }
+
+  /* Remove default focus outlines, add custom */
+  *:focus-visible {
+    outline: 1px solid #06b6d4;
+    outline-offset: 2px;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: color-mix(in oklch, #06b6d4 25%, transparent);
+  }
+}
+
+/* ─── Custom Utilities ─── */
+
+@utility glass {
+  background: color-mix(in oklch, white 2%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in oklch, #06b6d4 12%, transparent);
+  border-radius: 0.75rem;
+}
+
+@utility glass-sm {
+  background: color-mix(in oklch, white 2%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in oklch, white 6%, transparent);
+  border-radius: 0.5rem;
+}
+
+@utility glass-card {
+  background: color-mix(in oklch, #0d1526 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in oklch, #06b6d4 10%, transparent);
+  border-radius: 0.75rem;
+}
+
+@utility glow-primary {
+  box-shadow: 0 0 24px color-mix(in oklch, #06b6d4 12%, transparent),
+    0 0 0 1px color-mix(in oklch, #06b6d4 8%, transparent);
+}
+
+@utility glow-success {
+  box-shadow: 0 0 20px color-mix(in oklch, #10b981 15%, transparent);
+}
+
+@utility glow-danger {
+  box-shadow: 0 0 20px color-mix(in oklch, #ef4444 15%, transparent);
+}
+
+@utility text-gradient {
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@utility font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ─── Animations ─── */
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes ping-slow {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.animate-fade-in {
+  animation: fadeSlideIn 0.2s ease-out both;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ─── Terminal / Code Styling ─── */
+
+.terminal-text {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #06b6d4;
+}
+
+.log-line {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  padding: 0.125rem 0;
+}
+
+/* ─── Grid overlay for JARVIS feel ─── */
+.grid-overlay {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, #06b6d4 3%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, #06b6d4 3%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 40px 40px;
+}
