@@ -1,0 +1,9 @@
+[service]
+name = "myrapidclawcontrol-devbox"
+
+[build]
+dockerfile = "Dockerfile"
+
+[deploy]
+startCommand = "npm run start"
+port = 3000

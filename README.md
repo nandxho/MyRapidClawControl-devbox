@@ -281,3 +281,14 @@ create index if not exists idx_ingest_events_received_at on public.ingest_events
 - `SUPABASE_URL=<https://...supabase.co>`
 - `SUPABASE_SERVICE_ROLE_KEY=<service role key>`
 - `SUPABASE_ANON_KEY=<anon key>`
+
+---
+
+## Zeabur Docker Deploy
+
+Use the included Dockerfile and configure:
+- `SOURCE_MODE=ingest`
+- `INGEST_AUTH_TOKEN`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
