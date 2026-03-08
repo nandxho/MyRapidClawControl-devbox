@@ -15,6 +15,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLiveEvents } from "@/lib/live-events";
 
 interface NavItem {
   href: string;
@@ -35,7 +36,7 @@ const NAV_ITEMS: NavItem[] = [
     href: "/ops",
     label: "OPS",
     icon: Activity,
-    badge: 3,
+    badge: undefined,
     description: "Tasks & logs",
   },
   {
@@ -60,7 +61,7 @@ const NAV_ITEMS: NavItem[] = [
     href: "/comms",
     label: "Comms",
     icon: Bell,
-    badge: 2,
+    badge: undefined,
     description: "Notifications",
   },
   {
@@ -79,12 +80,16 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { events } = useLiveEvents();
+  const opsBadge = events.length;
+  const commsBadge = events.filter((e)=>/(error|warn|alert)/i.test(e.event_type)).length;
 
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-white/[0.05] bg-[#050a14]">
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
         {NAV_ITEMS.map((item) => {
+          const dynamicBadge = item.href === "/ops" ? opsBadge : item.href === "/comms" ? commsBadge : item.badge;
           const isActive = pathname === item.href;
           const Icon = item.icon;
 
@@ -128,18 +133,18 @@ export function Sidebar() {
                   </span>
                 </div>
 
-                {item.badge !== undefined && (
+                {dynamicBadge !== undefined && (
                   <span className={cn(
                     "ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
                     isActive
                       ? "bg-cyan-500/20 text-cyan-300"
                       : "bg-white/[0.06] text-slate-400"
                   )}>
-                    {item.badge}
+                    {dynamicBadge}
                   </span>
                 )}
 
-                {!item.badge && (
+                {dynamicBadge === undefined && (
                   <ChevronRight className={cn(
                     "ml-auto h-3 w-3 shrink-0 transition-opacity",
                     isActive ? "opacity-60 text-cyan-400" : "opacity-0 group-hover:opacity-30"

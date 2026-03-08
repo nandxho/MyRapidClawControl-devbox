@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useLiveEvents } from "@/lib/live-events";
 
 type GatewayStatus = "healthy" | "degraded" | "offline";
 
@@ -42,7 +43,8 @@ const STATUS_DOT: Record<GatewayStatus, string> = {
 export function TopBar() {
   const [health, setHealth] = useState<HealthState>({ status: "healthy", latency: 42 });
   const [search, setSearch] = useState("");
-  const [notifCount] = useState(2);
+  const { events } = useLiveEvents();
+  const notifCount = events.filter((e)=>/(error|warn|alert|inbound_event)/i.test(e.event_type)).length;
 
   const checkHealth = useCallback(async () => {
     const start = performance.now();
