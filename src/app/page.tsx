@@ -26,17 +26,55 @@ import {
 import { MetricCard } from "@/components/ui/metric-card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { StatusBadge, PriorityBadge } from "@/components/ui/status-badge";
-import {
-  MOCK_AGENTS,
-  MOCK_TASKS,
-  MOCK_EVENTS,
-  generateMetrics,
-} from "@/lib/mock-data";
+import { generateMetrics } from "@/lib/mock-data";
 import { formatRelativeTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import type { SystemMetric } from "@/lib/types";
+import type { EventSeverity, SystemMetric, TaskPriority, TaskStatus } from "@/lib/types";
 
 const STAGGER = { container: { animate: { transition: { staggerChildren: 0.05 } } }, item: { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 } } };
+
+type IngestEvent = {
+  id: number;
+  source: string;
+  event_type: string;
+  event_time: string;
+  received_at: string;
+  payload: Record<string, unknown> | null;
+};
+
+type EventsResponse = {
+  configured: boolean;
+  events: IngestEvent[];
+};
+
+function eventSeverity(eventType: string): EventSeverity {
+  const t = eventType.toLowerCase();
+  if (t.includes("error") || t.includes("fail")) return "error";
+  if (t.includes("warn")) return "warning";
+  if (t.includes("success") || t.includes("complete")) return "success";
+  return "info";
+}
+
+function taskStatus(eventType: string): TaskStatus {
+  const t = eventType.toLowerCase();
+  if (t.includes("error") || t.includes("fail")) return "failed";
+  if (t.includes("success") || t.includes("complete")) return "completed";
+  if (t.includes("start") || t.includes("run") || t.includes("process")) return "running";
+  return "pending";
+}
+
+function taskPriority(eventType: string): TaskPriority {
+  const t = eventType.toLowerCase();
+  if (t.includes("critical")) return "critical";
+  if (t.includes("error") || t.includes("fail")) return "high";
+  if (t.includes("warn")) return "medium";
+  return "low";
+}
+
+function toNumberTimestamp(v: string) {
+  const n = Date.parse(v);
+  return Number.isFinite(n) ? n : Date.now();
+}
 
 // Custom tooltip for recharts
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) {
@@ -55,16 +93,87 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 export default function HomePage() {
   const [metrics, setMetrics] = useState<SystemMetric[]>([]);
+  const [ingestEvents, setIngestEvents] = useState<IngestEvent[]>([]);
 
   useEffect(() => {
     setMetrics(generateMetrics(24));
+
+    const loadEvents = async () => {
+      try {
+        const res = await fetch("/api/events", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as EventsResponse;
+        setIngestEvents(Array.isArray(data.events) ? data.events : []);
+      } catch {
+        // silent: keep UI usable even if events endpoint is down
+      }
+    };
+
+    loadEvents();
+    const interval = setInterval(loadEvents, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const activeAgents = useMemo(() => MOCK_AGENTS.filter((a) => a.status === "active").length, []);
-  const runningTasks = useMemo(() => MOCK_TASKS.filter((t) => t.status === "running").length, []);
-  const completedToday = useMemo(() => MOCK_TASKS.filter((t) => t.status === "completed").length, []);
-  const recentEvents = useMemo(() => MOCK_EVENTS.slice(0, 6), []);
-  const recentTasks = useMemo(() => MOCK_TASKS.slice(0, 5), []);
+  const activeAgents = useMemo(() => {
+    const activeCutoff = Date.now() - 60 * 60 * 1000;
+    const unique = new Set(
+      ingestEvents
+        .filter((e) => toNumberTimestamp(e.received_at) >= activeCutoff)
+        .map((e) => e.source),
+    );
+    return unique.size;
+  }, [ingestEvents]);
+
+  const runningTasks = useMemo(() =>
+    ingestEvents.filter((e) => taskStatus(e.event_type) === "running").length
+  , [ingestEvents]);
+
+  const completedToday = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return ingestEvents.filter((e) =>
+      taskStatus(e.event_type) === "completed" && e.received_at.startsWith(today)
+    ).length;
+  }, [ingestEvents]);
+
+  const recentEvents = useMemo(() =>
+    ingestEvents.slice(0, 6).map((event) => ({
+      _id: String(event.id),
+      source: event.source || "ingest",
+      severity: eventSeverity(event.event_type),
+      message:
+        (typeof event.payload?.message === "string" && event.payload.message) ||
+        `${event.event_type} event received`,
+      timestamp: toNumberTimestamp(event.event_time || event.received_at),
+    }))
+  , [ingestEvents]);
+
+  const recentTasks = useMemo(() =>
+    ingestEvents.slice(0, 5).map((event) => ({
+      _id: String(event.id),
+      title: `${event.event_type} (${event.source})`,
+      status: taskStatus(event.event_type),
+      priority: taskPriority(event.event_type),
+      agentName: event.source || "ingest",
+      createdAt: toNumberTimestamp(event.event_time || event.received_at),
+    }))
+  , [ingestEvents]);
+
+  const agentRows = useMemo<Array<{ _id: string; name: string; model: string; status: "active" | "idle" }>>(() => {
+    const latestBySource = new Map<string, number>();
+    for (const event of ingestEvents) {
+      if (!latestBySource.has(event.source)) {
+        latestBySource.set(event.source, toNumberTimestamp(event.received_at));
+      }
+    }
+
+    const now = Date.now();
+    return Array.from(latestBySource.entries()).slice(0, 5).map(([source, lastSeen], idx) => ({
+      _id: `${source}-${idx}`,
+      name: source.toUpperCase(),
+      model: "ingest source",
+      status: now - lastSeen < 60 * 60 * 1000 ? "active" : "idle",
+    }));
+  }, [ingestEvents]);
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -195,7 +304,7 @@ export default function HomePage() {
               </Link>
             </div>
             <div className="divide-y divide-white/[0.04]">
-              {MOCK_AGENTS.slice(0, 5).map((agent) => (
+              {agentRows.map((agent) => (
                 <div key={agent._id} className="flex items-center gap-3 px-4 py-2.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/15">
                     <span className="text-[10px] font-bold text-cyan-400 font-mono">{agent.name.slice(0, 2)}</span>
