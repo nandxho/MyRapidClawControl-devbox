@@ -26,7 +26,6 @@ import {
 import { MetricCard } from "@/components/ui/metric-card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { StatusBadge, PriorityBadge } from "@/components/ui/status-badge";
-import { generateMetrics } from "@/lib/mock-data";
 import { formatRelativeTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { EventSeverity, SystemMetric, TaskPriority, TaskStatus } from "@/lib/types";
@@ -76,6 +75,40 @@ function toNumberTimestamp(v: string) {
   return Number.isFinite(n) ? n : Date.now();
 }
 
+
+function buildMetrics(events: IngestEvent[]): SystemMetric[] {
+  const now = new Date();
+  const buckets = Array.from({ length: 24 }, (_, i) => {
+    const d = new Date(now);
+    d.setMinutes(0, 0, 0);
+    d.setHours(now.getHours() - (23 - i));
+    return {
+      key: d.getTime(),
+      time: d.toISOString().slice(11, 13) + ":00",
+      messages: 0,
+      tasks: 0,
+      latency: 0,
+      errors: 0,
+      tokens: 0,
+    };
+  });
+
+  const idx = new Map(buckets.map((b, i) => [b.key, i] as const));
+  for (const ev of events) {
+    const d = new Date(ev.received_at || ev.event_time);
+    d.setMinutes(0, 0, 0);
+    const k = d.getTime();
+    const i = idx.get(k);
+    if (i === undefined) continue;
+    const t = ev.event_type.toLowerCase();
+    buckets[i].messages += 1;
+    buckets[i].tasks += t.includes("task") || t.includes("run") || t.includes("process") || t.includes("status") ? 1 : 0;
+    buckets[i].errors += t.includes("error") || t.includes("fail") ? 1 : 0;
+  }
+
+  return buckets;
+}
+
 // Custom tooltip for recharts
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) {
   if (!active || !payload?.length) return null;
@@ -96,14 +129,14 @@ export default function HomePage() {
   const [ingestEvents, setIngestEvents] = useState<IngestEvent[]>([]);
 
   useEffect(() => {
-    setMetrics(generateMetrics(24));
-
     const loadEvents = async () => {
       try {
         const res = await fetch("/api/events", { cache: "no-store" });
         if (!res.ok) return;
         const data = (await res.json()) as EventsResponse;
-        setIngestEvents(Array.isArray(data.events) ? data.events : []);
+        const events = Array.isArray(data.events) ? data.events : [];
+        setIngestEvents(events);
+        setMetrics(buildMetrics(events));
       } catch {
         // silent: keep UI usable even if events endpoint is down
       }
@@ -208,10 +241,10 @@ export default function HomePage() {
         className="grid grid-cols-2 lg:grid-cols-4 gap-3"
       >
         {[
-          { title: "Active Agents", value: activeAgents, delta: "+1 today", direction: "up" as const, icon: Bot, description: "of 6 registered" },
-          { title: "Running Tasks", value: runningTasks, delta: "2 critical", direction: "neutral" as const, icon: Activity, description: "in queue: 2 pending" },
-          { title: "Completed Today", value: completedToday, delta: "+18%", direction: "up" as const, icon: CheckCircle2, iconColor: "text-emerald-400", description: "vs yesterday" },
-          { title: "Uptime", value: "99.8%", delta: "+0.1%", direction: "up" as const, icon: Zap, iconColor: "text-amber-400", description: "30-day average" },
+          { title: "Active Agents", value: activeAgents, delta: `${ingestEvents.length} events`, direction: "neutral" as const, icon: Bot, description: "last 24h sources" },
+          { title: "Running Tasks", value: runningTasks, delta: `${metrics.reduce((a, b) => a + b.errors, 0)} errors`, direction: "neutral" as const, icon: Activity, description: "derived from event types" },
+          { title: "Completed Today", value: completedToday, delta: `${recentEvents.length} recent`, direction: "up" as const, icon: CheckCircle2, iconColor: "text-emerald-400", description: "based on today events" },
+          { title: "Event Feed", value: ingestEvents.length, delta: recentEvents[0] ? formatRelativeTime(recentEvents[0].timestamp) : "no events", direction: "neutral" as const, icon: Zap, iconColor: "text-amber-400", description: "records in Supabase" },
         ].map((metric) => (
           <motion.div key={metric.title} variants={STAGGER.item}>
             <MetricCard
